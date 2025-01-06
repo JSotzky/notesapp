@@ -1,11 +1,14 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 
 const schema = a.schema({
-  Note: a
+  // New model for a budgeting application
+  Transaction: a
     .model({
-      name: a.string(),
-      description: a.string(),
-      image: a.string(),
+      type: a.string().required(), // e.g., "income", "expense"
+      amount: a.float().required(), // numeric amount
+      category: a.string().required(),
+      date: a.datetime().required(),
+      notes: a.string(), // optional field for extra info
     })
     .authorization((allow) => [allow.owner()]),
 });

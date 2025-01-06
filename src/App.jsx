@@ -7,16 +7,14 @@ import {
   Heading,
   Flex,
   View,
-  Image,
   Grid,
   Divider,
 } from "@aws-amplify/ui-react";
 import { Amplify } from "aws-amplify";
 import "@aws-amplify/ui-react/styles.css";
-import { getUrl } from "aws-amplify/storage";
-import { uploadData } from "aws-amplify/storage";
 import { generateClient } from "aws-amplify/data";
 import outputs from "../amplify_outputs.json";
+
 /**
  * @type {import('aws-amplify/data').Client<import('../amplify/data/resource').Schema>}
  */
@@ -27,65 +25,47 @@ const client = generateClient({
 });
 
 export default function App() {
-  const [notes, setNotes] = useState([]);
+  // Replace notes with transactions
+  const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
-    fetchNotes();
+    fetchTransactions();
   }, []);
 
-  async function fetchNotes() {
-    const { data: notes } = await client.models.Note.list();
-    await Promise.all(
-      notes.map(async (note) => {
-        if (note.image) {
-          const linkToStorageFile = await getUrl({
-            path: ({ identityId }) => `media/${identityId}/${note.image}`,
-          });
-          console.log(linkToStorageFile.url);
-          note.image = linkToStorageFile.url;
-        }
-        return note;
-      })
-    );
-    console.log(notes);
-    setNotes(notes);
+  async function fetchTransactions() {
+    // Pull from Transaction model instead of Note
+    const { data } = await client.models.Transaction.list();
+    // data holds an array of Transaction objects
+    setTransactions(data);
   }
 
-  async function createNote(event) {
+  async function createTransaction(event) {
     event.preventDefault();
     const form = new FormData(event.target);
-    console.log(form.get("image").name);
 
-    const { data: newNote } = await client.models.Note.create({
-      name: form.get("name"),
-      description: form.get("description"),
-      image: form.get("image").name,
+    const { data: newTransaction } = await client.models.Transaction.create({
+      type: form.get("type"),
+      amount: parseFloat(form.get("amount")),
+      category: form.get("category"),
+      // The date input returns something like "2025-03-10"
+      date: form.get("date"),
+      notes: form.get("notes"),
     });
 
-    console.log(newNote);
-    if (newNote.image)
-      if (newNote.image)
-        await uploadData({
-          path: ({ identityId }) => `media/${identityId}/${newNote.image}`,
-
-          data: form.get("image"),
-        }).result;
-
-    fetchNotes();
+    console.log("Created transaction:", newTransaction);
+    fetchTransactions();
     event.target.reset();
   }
 
-  async function deleteNote({ id }) {
-    const toBeDeletedNote = {
-      id: id,
-    };
-
-    const { data: deletedNote } = await client.models.Note.delete(
-      toBeDeletedNote
+  async function deleteTransaction(transaction) {
+    // Delete by ID
+    const { data: deletedTransaction } = await client.models.Transaction.delete(
+      {
+        id: transaction.id,
+      }
     );
-    console.log(deletedNote);
-
-    fetchNotes();
+    console.log("Deleted transaction:", deletedTransaction);
+    fetchTransactions();
   }
 
   return (
@@ -99,45 +79,60 @@ export default function App() {
           width="70%"
           margin="0 auto"
         >
-          <Heading level={1}>My Notes App</Heading>
-          <View as="form" margin="3rem 0" onSubmit={createNote}>
-            <Flex
-              direction="column"
-              justifyContent="center"
-              gap="2rem"
-              padding="2rem"
-            >
-              <TextField
-                name="name"
-                placeholder="Note Name"
-                label="Note Name"
-                labelHidden
-                variation="quiet"
-                required
-              />
-              <TextField
-                name="description"
-                placeholder="Note Description"
-                label="Note Description"
-                labelHidden
-                variation="quiet"
-                required
-              />
-              <View
-                name="image"
-                as="input"
-                type="file"
-                alignSelf={"end"}
-                accept="image/png, image/jpeg"
-              />
+          <Heading level={1}>My Budget App</Heading>
 
+          {/* Form to create a transaction */}
+          <View as="form" margin="3rem 0" onSubmit={createTransaction}>
+            <Flex direction="column" gap="2rem" padding="2rem">
+              <TextField
+                name="type"
+                placeholder="Transaction Type (income/expense)"
+                label="Type"
+                labelHidden
+                variation="quiet"
+                required
+              />
+              <TextField
+                name="amount"
+                placeholder="Amount"
+                label="Amount"
+                labelHidden
+                variation="quiet"
+                required
+              />
+              <TextField
+                name="category"
+                placeholder="Category"
+                label="Category"
+                labelHidden
+                variation="quiet"
+                required
+              />
+              <TextField
+                name="date"
+                type="date"
+                placeholder="Select Date"
+                label="Transaction Date"
+                labelHidden
+                variation="quiet"
+                required
+              />
+              <TextField
+                name="notes"
+                placeholder="Additional Notes (optional)"
+                label="Notes"
+                labelHidden
+                variation="quiet"
+              />
               <Button type="submit" variation="primary">
-                Create Note
+                Create Transaction
               </Button>
             </Flex>
           </View>
+
           <Divider />
-          <Heading level={2}>Current Notes</Heading>
+
+          <Heading level={2}>Current Transactions</Heading>
           <Grid
             margin="3rem 0"
             autoFlow="column"
@@ -145,38 +140,35 @@ export default function App() {
             gap="2rem"
             alignContent="center"
           >
-            {notes.map((note) => (
+            {transactions.map((transaction) => (
               <Flex
-                key={note.id || note.name}
+                key={transaction.id}
                 direction="column"
                 justifyContent="center"
                 alignItems="center"
-                gap="2rem"
+                gap="1rem"
                 border="1px solid #ccc"
                 padding="2rem"
                 borderRadius="5%"
-                className="box"
               >
-                <View>
-                  <Heading level="3">{note.name}</Heading>
-                </View>
-                <Text fontStyle="italic">{note.description}</Text>
-                {note.image && (
-                  <Image
-                    src={note.image}
-                    alt={`visual aid for ${notes.name}`}
-                    style={{ width: 400 }}
-                  />
+                <Heading level={3}>
+                  {transaction.type} - ${transaction.amount}
+                </Heading>
+                <Text>Category: {transaction.category}</Text>
+                <Text>Date: {transaction.date}</Text>
+                {transaction.notes && (
+                  <Text fontStyle="italic">Notes: {transaction.notes}</Text>
                 )}
                 <Button
                   variation="destructive"
-                  onClick={() => deleteNote(note)}
+                  onClick={() => deleteTransaction(transaction)}
                 >
-                  Delete note
+                  Delete
                 </Button>
               </Flex>
             ))}
           </Grid>
+
           <Button onClick={signOut}>Sign Out</Button>
         </Flex>
       )}
