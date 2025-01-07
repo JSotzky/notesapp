@@ -15,10 +15,6 @@ import "@aws-amplify/ui-react/styles.css";
 import { generateClient } from "aws-amplify/data";
 import outputs from "../amplify_outputs.json";
 
-/**
- * @type {import('aws-amplify/data').Client<import('../amplify/data/resource').Schema>}
- */
-
 Amplify.configure(outputs);
 const client = generateClient({
   authMode: "userPool",
@@ -34,27 +30,37 @@ export default function App() {
 
   async function fetchTransactions() {
     // Pull from Transaction model instead of Note
-    const { data } = await client.models.Transaction.list();
+    const { data: transactions } = await client.models.Transaction.list();
     // data holds an array of Transaction objects
-    setTransactions(data);
+
+    setTransactions(transactions);
   }
 
   async function createTransaction(event) {
     event.preventDefault();
     const form = new FormData(event.target);
 
-    const { data: newTransaction } = await client.models.Transaction.create({
-      type: form.get("type"),
-      amount: parseFloat(form.get("amount")),
+    const transactionData = {
+      inflow: form.get("inflow"),
+      outflow: form.get("outflow"),
+      payee: form.get("payee"),
       category: form.get("category"),
-      // The date input returns something like "2025-03-10"
       date: form.get("date"),
-      notes: form.get("notes"),
-    });
+      memo: form.get("memo"),
+    };
 
-    console.log("Created transaction:", newTransaction);
-    fetchTransactions();
-    event.target.reset();
+    console.log("Transaction Data:", transactionData);
+
+    try {
+      const { data: newTransaction } = await client.models.Transaction.create(
+        transactionData
+      );
+      console.log("Created transaction:", newTransaction);
+      fetchTransactions(); // Refresh transactions list
+      event.target.reset(); // Clear form
+    } catch (error) {
+      console.error("Error creating transaction:", error);
+    }
   }
 
   async function deleteTransaction(transaction) {
@@ -83,19 +89,25 @@ export default function App() {
 
           {/* Form to create a transaction */}
           <View as="form" margin="3rem 0" onSubmit={createTransaction}>
-            <Flex direction="column" gap="2rem" padding="2rem">
+            <Flex direction="row" gap="2rem" padding="2rem">
               <TextField
-                name="type"
-                placeholder="Transaction Type (income/expense)"
-                label="Type"
+                name="inflow"
+                placeholder="Transaction Type income"
+                label="Inflow"
                 labelHidden
                 variation="quiet"
-                required
               />
               <TextField
-                name="amount"
-                placeholder="Amount"
-                label="Amount"
+                name="outflow"
+                placeholder="Expense"
+                label="Outflow"
+                labelHidden
+                variation="quiet"
+              />
+              <TextField
+                name="payee"
+                placeholder="Payee"
+                label="Payee"
                 labelHidden
                 variation="quiet"
                 required
@@ -118,9 +130,9 @@ export default function App() {
                 required
               />
               <TextField
-                name="notes"
+                name="memo"
                 placeholder="Additional Notes (optional)"
-                label="Notes"
+                label="Memo"
                 labelHidden
                 variation="quiet"
               />
@@ -152,12 +164,13 @@ export default function App() {
                 borderRadius="5%"
               >
                 <Heading level={3}>
-                  {transaction.type} - ${transaction.amount}
+                  {transaction.payee} - $
+                  {transaction.inflow || transaction.outflow}
                 </Heading>
                 <Text>Category: {transaction.category}</Text>
                 <Text>Date: {transaction.date}</Text>
-                {transaction.notes && (
-                  <Text fontStyle="italic">Notes: {transaction.notes}</Text>
+                {transaction.memo && (
+                  <Text fontStyle="italic">Notes: {transaction.memo}</Text>
                 )}
                 <Button
                   variation="destructive"

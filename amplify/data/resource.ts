@@ -4,11 +4,12 @@ const schema = a.schema({
   // New model for a budgeting application
   Transaction: a
     .model({
-      type: a.string().required(), // e.g., "income", "expense"
-      amount: a.float().required(), // numeric amount
-      category: a.string().required(),
-      date: a.datetime().required(),
-      notes: a.string(), // optional field for extra info
+      inflow: a.float(), // e.g., "income", "expense"
+      outflow: a.float(), // numeric amount
+      payee: a.string().required(),
+      category: a.string().required(), // e.g., "groceries", "salary", "entertainment"
+      memo: a.string(), // optional field for extra info
+      date: a.date().required(),
     })
     .authorization((allow) => [allow.owner()]),
 });
